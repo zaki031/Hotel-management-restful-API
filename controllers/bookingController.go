@@ -34,17 +34,39 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	_, err := collection.InsertOne(ctx, bson.D{
 		{Key: "BookerFirstname", Value: booking.BookerFirstname},
 		{Key: "BookerLastname", Value: booking.BookerLastname},
+		{Key: "RoomNumber", Value: booking.RoomNumber},
 		{Key: "status", Value: "Pending"},
 		{Key: "checkInDate", Value: booking.CheckInDate},
 		{Key: "checkOutDate", Value: booking.CheckOutDate},
 	})
-	if err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		log.Println(err)
+		rooms := database.Connect("rooms");
+		var room models.Room
+		err =rooms.FindOne(ctx, bson.D{{Key: "roomNumber", Value: booking.RoomNumber}}).Decode(&room);
+		
+		if room.Availability != "Booked"{
+		_, err = rooms.UpdateOne(ctx,bson.D{ {Key: "roomNumber", Value: booking.RoomNumber}} , bson.M{
+			"$set" :bson.M{
+			 "bookerFirstname": booking.BookerFirstname,
+			 "bookerLastname":booking.BookerLastname,
+			 "checkInDate" : booking.CheckInDate,
+			 "checkOutDate" : booking.CheckOutDate,
+			 "availability" : "Booked",
+			},
+			
+		})
+		if err != nil {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			log.Println(err)
+			return
+		}
+	
+		json.NewEncoder(w).Encode(resp)
+	}else {
+		json.NewEncoder(w).Encode("Room is already booked");
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	
 }
 
 func DeleteBooking(w http.ResponseWriter, r *http.Request) {
@@ -80,5 +102,46 @@ func GetAllBookings(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	json.NewEncoder(w).Encode(bookings)
+
+}
+
+
+
+func UpdateBooking(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*") 
+
+
+	vars := mux.Vars(r)
+	objID, err := primitive.ObjectIDFromHex(vars["id"])
+	var booking models.Booking;
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&booking); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	collection := database.Connect("bookings")
+	ctx := database.Ctx
+	_, err = collection.UpdateOne(ctx,bson.M{"_id": objID},bson.M{
+		"$set": bson.M{
+			"BookerFirstname": booking.BookerFirstname,
+			"BookerLastname": booking.BookerLastname,
+			"roomNumber": booking.RoomNumber,
+			"status": "Pending",
+			"checkInDate": booking.CheckInDate,
+			"checkOutDate": booking.CheckOutDate,
+		},
+	},
+)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	json.NewEncoder(w).Encode(map[string]string{"message": "Booking updated successfully"})
 
 }

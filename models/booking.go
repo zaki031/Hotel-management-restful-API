@@ -9,7 +9,6 @@ type Booking struct {
 	BookerFirstname string             `bson:"BookerFirstname,omitempty"`
 	BookerLastname  string             `bson:"BookerLastname,omitempty"`
 	RoomNumber      int                `bson:"RoomNumber,omitempty"`
-
 	CheckInDate   primitive.DateTime `bson:"checkInDate,omitempty"`
 	CheckOutDate  primitive.DateTime `bson:"checkOutDate,omitempty"`
 	BookingStatus string             `bson:"status,omitempty" default:"Pending"`

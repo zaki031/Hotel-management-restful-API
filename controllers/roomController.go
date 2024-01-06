@@ -91,3 +91,73 @@ func GetAllRooms(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(rooms)
 
 }
+
+
+
+
+func UpdateRoom(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*") 
+
+
+	vars := mux.Vars(r)
+	objID, err := primitive.ObjectIDFromHex(vars["id"])
+
+	var room models.Room;
+
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&room); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	updateFields := bson.M{}
+
+	if room.RoomNumber != 0 {
+    updateFields["roomNumber"] = room.RoomNumber
+}
+	if room.Type != "" {
+    updateFields["type"] = room.Type
+}
+	if room.Price != 0 {
+    updateFields["price"] = room.Price
+}
+if room.Availability != "Not Booked" {
+    updateFields["availability"] = room.Availability
+}
+
+if room.BookerFirstname != "" {
+	updateFields["bookerFirstname"] = room.BookerFirstname
+
+}
+if room.BookerLastname != "" {
+	updateFields["bookerLastname"] = room.BookerLastname
+
+}
+if !room.CheckInDate.Time().IsZero() {
+	updateFields["checkInDate"] = room.CheckInDate
+
+}
+if !room.CheckOutDate.Time().IsZero() {
+	updateFields["checkOutDate"] = room.CheckOutDate
+
+}
+
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	collection := database.Connect("rooms")
+	ctx := database.Ctx
+	_, err = collection.UpdateOne(ctx,bson.M{"_id": objID},bson.M{
+		"$set": updateFields,
+	},
+)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	json.NewEncoder(w).Encode(map[string]string{"message": "Room updated successfully"})
+
+}

@@ -56,6 +56,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*") 
 	vars := mux.Vars(r)
 	objID, err := primitive.ObjectIDFromHex(vars["id"])
 	if err != nil {
@@ -72,9 +73,49 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*") 
+
+
+	vars := mux.Vars(r)
+	objID, err := primitive.ObjectIDFromHex(vars["id"])
+
+	var user models.User;
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&user); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	collection := database.Connect("users")
+	ctx := database.Ctx
+	_, err = collection.UpdateOne(ctx,bson.M{"_id": objID},bson.M{
+		"$set": bson.M{
+			"firstname":   user.Firstname,
+			"lastname":    user.Lastname,
+			"email":       user.Email,
+			"phonenumber": user.PhoneNumber,
+		},
+	},
+)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	json.NewEncoder(w).Encode(map[string]string{"message": "User updated successfully"})
+
+}
+
+
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*") 
 	collection := database.Connect("users")
 	ctx := database.Ctx
 	cursor, err := collection.Find(ctx, bson.D{})
@@ -90,4 +131,6 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(users)
 
+
+	
 }
