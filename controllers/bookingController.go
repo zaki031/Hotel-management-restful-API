@@ -3,13 +3,15 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"main/database"
 	"main/models"
 	"net/http"
+
+	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func CreateBooking(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +45,10 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 		var room models.Room
 		err =rooms.FindOne(ctx, bson.D{{Key: "roomNumber", Value: booking.RoomNumber}}).Decode(&room);
 		
-		if room.Availability != "Booked"{
+		if err == mongo.ErrNoDocuments{
+			w.WriteHeader(http.StatusInternalServerError)
+    		w.Write([]byte("500 - Room Doesnt Exist!"))
+		} else if room.Availability != "Booked"{
 		_, err = rooms.UpdateOne(ctx,bson.D{ {Key: "roomNumber", Value: booking.RoomNumber}} , bson.M{
 			"$set" :bson.M{
 			 "bookerFirstname": booking.BookerFirstname,
@@ -62,7 +67,8 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 	
 		json.NewEncoder(w).Encode(resp)
 	}else {
-		json.NewEncoder(w).Encode("Room is already booked");
+			w.WriteHeader(http.StatusInternalServerError)
+    		w.Write([]byte("500 - Room Already Booked!"))
 		return
 	}
 
@@ -72,18 +78,38 @@ func CreateBooking(w http.ResponseWriter, r *http.Request) {
 func DeleteBooking(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	objID, err := primitive.ObjectIDFromHex(vars["id"])
+	
 	if err != nil {
 		log.Fatal(err)
 	}
+	
 	w.Header().Set("Content-Type", "application/json")
 	collection := database.Connect("bookings")
 	ctx := database.Ctx
+
+	var booking models.Booking
+	err = collection.FindOne(ctx, bson.D{
+		{Key: "_id" , Value: objID},
+		}).Decode(&booking)
+	if err!=nil{
+		log.Fatal(err);
+	}
 	_, err = collection.DeleteOne(ctx, bson.D{
 		{Key: "_id", Value: objID},
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println(booking.RoomNumber)
+	rooms := database.Connect("rooms");
+	var room models.Room;
+	err = rooms.FindOne(ctx, bson.D{{Key: "roomNumber", Value: booking.RoomNumber}}).Decode(&room);
+	_, err = rooms.UpdateByID(ctx, bson.M{"_id": room.ID}, bson.M{
+		"$set":bson.M{
+			"availability" : "Not Booked",
+		},
+	})
+
 }
 
 func GetAllBookings(w http.ResponseWriter, r *http.Request) {
@@ -145,3 +171,4 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Booking updated successfully"})
 
 }
+
