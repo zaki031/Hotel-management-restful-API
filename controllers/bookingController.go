@@ -100,7 +100,9 @@ func DeleteBooking(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(booking.RoomNumber)
+	w.WriteHeader(http.StatusAccepted)
+    w.Write([]byte("200 - Booking succefully deleted"))
+
 	rooms := database.Connect("rooms");
 	var room models.Room;
 	err = rooms.FindOne(ctx, bson.D{{Key: "roomNumber", Value: booking.RoomNumber}}).Decode(&room);
@@ -167,7 +169,7 @@ func UpdateBooking(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Fatal(err)
-	}
+	} 
 	json.NewEncoder(w).Encode(map[string]string{"message": "Booking updated successfully"})
 
 }
